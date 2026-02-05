@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Chat</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-in { animation: fade-in 0.2s ease-out; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+    <div id="root"></div>
+
+    <!-- IMPORTANT: Type must be text/babel for React to work in browser -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Icons (Inline SVGs to avoid 'import' errors) ---
+        const SendIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        );
+        const BotIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>
+        );
+        const UserIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        );
+        const SparklesIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+        );
+        const LoaderIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+        );
+        const SettingsIcon = ({ size = 20, className }) => (
+             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        );
+        const XIcon = ({ size = 20, className }) => (
+             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        );
+        const AlertIcon = ({ size = 20, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        );
+
+        // --- Main App Component ---
+        const App = () => {
+            const [messages, setMessages] = useState([
+                { id: 1, role: 'bot', content: "Hello! I'm ready to chat. If you see errors, check the Python console." }
+            ]);
+            const [inputValue, setInputValue] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState(null);
+            
+            // Settings State
+            const [showSettings, setShowSettings] = useState(false);
+            const [apiUrl, setApiUrl] = useState(() => {
+                return localStorage.getItem('gemini_api_url') || '/chat';
+            });
+            
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const handleSaveSettings = () => {
+                localStorage.setItem('gemini_api_url', apiUrl);
+                setShowSettings(false);
+                setError(null);
+            };
+
+            const handleSendMessage = async (e) => {
+                e.preventDefault();
+                if (!inputValue.trim() || isLoading) return;
+
+                const userMessageText = inputValue.trim();
+                setInputValue('');
+                setError(null);
+
+                // Add User Message
+                const newUserMsg = { id: Date.now(), role: 'user', content: userMessageText };
+                setMessages((prev) => [...prev, newUserMsg]);
+                setIsLoading(true);
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            msg: userMessageText
+                        }),
+                    });
+
+                    // Explicitly handle 500 errors (Backend Crash)
+                    if (response.status === 500) {
+                        const errorText = await response.text(); // Try to get python error stack if sent
+                        console.error("Backend 500:", errorText);
+                        throw new Error("Backend Error (500). The Python server crashed. Check your terminal logs.");
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    }
+
+                    // Your backend returns raw text
+                    const botResponseText = await response.text();
+
+                    const newBotMsg = { id: Date.now() + 1, role: 'bot', content: botResponseText };
+                    setMessages((prev) => [...prev, newBotMsg]);
+
+                } catch (err) {
+                    console.error("Chat Error:", err);
+                    let errorMessage = err.message;
+                    if (err.message.includes('Failed to fetch')) {
+                        errorMessage = "Connection Failed. Is the backend running?";
+                    }
+                    setError(errorMessage);
+                    
+                    // Only auto-open settings if it's NOT a 500 error (500 means connected but crashed)
+                    if (!err.message.includes('500')) {
+                        setShowSettings(true);
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-screen bg-slate-50 relative overflow-hidden">
+                    
+                     {/* Settings Modal */}
+                    {showSettings && (
+                        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                                        <SettingsIcon className="w-4 h-4" />
+                                        Connection Settings
+                                    </h2>
+                                    <button 
+                                        onClick={() => setShowSettings(false)}
+                                        className="text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        <XIcon size={20} />
+                                    </button>
+                                </div>
+                                
+                                <div className="p-6 space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">Backend API URL</label>
+                                        <input 
+                                            type="text" 
+                                            value={apiUrl}
+                                            onChange={(e) => setApiUrl(e.target.value)}
+                                            className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                                            placeholder="/chat"
+                                        />
+                                        <p className="text-xs text-slate-500">
+                                            Default: <code>/chat</code>
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={handleSaveSettings}
+                                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm"
+                                    >
+                                        Save & Connect
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Header */}
+                    <header className="flex-none bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-indigo-600 rounded-lg">
+                                <SparklesIcon className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-semibold text-slate-800">Gemini Flash Chat</h1>
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <span className={`w-2 h-2 rounded-full animate-pulse ${error ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+                                    {error ? 'Error' : 'Connected'}
+                                </div>
+                            </div>
+                        </div>
+                         <button 
+                            onClick={() => setShowSettings(true)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            title="Settings"
+                        >
+                            <SettingsIcon size={20} />
+                        </button>
+                    </header>
+
+                    {/* Chat Area */}
+                    <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                        {messages.map((msg) => (
+                            <div
+                                key={msg.id}
+                                className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div className={`flex max-w-[85%] md:max-w-[70%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    
+                                    {/* Avatar */}
+                                    <div className={`flex-none w-8 h-8 rounded-full flex items-center justify-center ${
+                                        msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'
+                                    }`}>
+                                        {msg.role === 'user' ? <UserIcon size={16} /> : <BotIcon size={16} />}
+                                    </div>
+
+                                    {/* Bubble */}
+                                    <div className={`flex flex-col gap-1 min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                        <div className={`px-4 py-3 rounded-2xl whitespace-pre-wrap leading-relaxed shadow-sm ${
+                                            msg.role === 'user' 
+                                                ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                                                : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'
+                                        }`}>
+                                            {msg.content}
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 px-1">
+                                            {msg.role === 'user' ? 'You' : 'Gemini'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Loading Indicator */}
+                        {isLoading && (
+                            <div className="flex w-full justify-start">
+                                <div className="flex max-w-[85%] gap-3">
+                                    <div className="flex-none w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                        <BotIcon size={16} />
+                                    </div>
+                                    <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-2">
+                                        <LoaderIcon className="w-4 h-4 text-slate-400 animate-spin" />
+                                        <span className="text-sm text-slate-400">Thinking...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Error Message */}
+                        {error && (
+                            <div className="flex justify-center my-4 animate-in fade-in">
+                                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex flex-col gap-1 shadow-sm max-w-lg">
+                                    <div className="flex items-center gap-2 font-semibold">
+                                        <AlertIcon size={16} />
+                                        <span>Error Occurred</span>
+                                    </div>
+                                    <div className="pl-6">{error}</div>
+                                    {error.includes('500') && (
+                                        <div className="pl-6 text-xs text-red-400 mt-1">
+                                            Tip: Check your Python code. Is the model name 'gemini-2.5-flash' valid for your API key? Try 'gemini-1.5-flash'.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div ref={messagesEndRef} />
+                    </main>
+
+                    {/* Input Area */}
+                    <footer className="flex-none bg-white p-4 border-t border-slate-200">
+                        <div className="max-w-4xl mx-auto">
+                            <form onSubmit={handleSendMessage} className="relative flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    placeholder="Type your message..."
+                                    disabled={isLoading}
+                                    className="w-full pl-4 pr-12 py-3 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-xl transition-all outline-none text-slate-700 placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!inputValue.trim() || isLoading}
+                                    className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 disabled:hover:bg-indigo-600 disabled:cursor-not-allowed"
+                                >
+                                    <SendIcon size={18} />
+                                </button>
+                            </form>
+                            <div className="text-center mt-2 flex justify-between px-2">
+                                <p className="text-[10px] text-slate-400">
+                                    API: <span className="font-mono text-slate-500">{apiUrl}</span>
+                                </p>
+                                <p className="text-[10px] text-slate-400">
+                                    AI generated content may be inaccurate.
+                                </p>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
